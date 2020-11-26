@@ -84,12 +84,12 @@ fn main() {
 
                     if !silent { println!("Writing {}", path) }
                     create_path(path.as_str());
-                    read_record(record, &ggpk.mmap, |bytes| {
+                    ggpk::get_record(record, &ggpk.mmap, |bytes| {
                         File::create(path.as_str()).unwrap().write(bytes).unwrap();
                     });
 
                 } else if matches.is_present("binary") {
-                    read_record(record, &ggpk.mmap, |bytes| {
+                    ggpk::get_record(record, &ggpk.mmap, |bytes| {
                         io::stdout().write_all(bytes).unwrap();
                     });
 
@@ -106,15 +106,5 @@ fn create_path(path: &str) {
             let _ = create_dir_all(directory);
         },
         None => {},
-    }
-}
-
-pub fn read_record<F>(record: &FileRecord, mmap: &Mmap, callback: F) where F: Fn(&[u8]) {
-    let file_end = record.begin + usize::try_from(record.bytes).unwrap();
-    match mmap.get(record.begin..file_end) {
-        Some(bytes) => {
-            callback(bytes);
-        },
-        None => error!("Failed reading bytes for file {}/{}", record.path, record.name),
     }
 }

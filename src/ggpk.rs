@@ -25,6 +25,16 @@ pub fn read<F>(filepath: &str, callback: F) where F: Fn(GGPK) {
     callback(GGPK { mmap, files });
 }
 
+pub fn get_record<F>(record: &FileRecord, mmap: &Mmap, callback: F) where F: Fn(&[u8]) {
+    let file_end = record.begin + usize::try_from(record.bytes).unwrap();
+    match mmap.get(record.begin..file_end) {
+        Some(bytes) => {
+            callback(bytes);
+        },
+        None => error!("Failed reading bytes for file {}/{}", record.path, record.name),
+    }
+}
+
 fn read_record(mmap: &Mmap, offset: u64, base: &String) -> LinkedList<FileRecord> {
     let mut c = Cursor::new(mmap);
     c.set_position(offset);
