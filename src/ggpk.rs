@@ -9,15 +9,16 @@ use std::convert::TryFrom;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
+use widestring::U32String;
 
 #[derive(Debug)]
 pub struct GGPK<'a> {
+    pub version: u32,
     pub mmap: Mmap,
     files: HashMap<String, &'a FileRecord>,
 }
 
 impl GGPK<'_> {
-    
     pub fn from_install(install_path: &str) -> GGPK<'_> {
         let content_path = format!("{}/Content.ggpk", install_path);
 
@@ -28,8 +29,13 @@ impl GGPK<'_> {
                 .expect("Mapping GGPK file to memory")
         };
 
+        let mut c = Cursor::new(&mmap);
+        c.set_position(8);
+        let version = c.read_u32::<LittleEndian>().unwrap();
+
         GGPK {
             mmap,
+            version,
             files: HashMap::new(),
         }
     }
@@ -42,8 +48,13 @@ impl GGPK<'_> {
                 .expect("Mapping GGPK file to memory")
         };
 
+        let mut c = Cursor::new(&mmap);
+        c.set_position(8);
+        let version = c.read_u32::<LittleEndian>().unwrap();
+
         GGPK {
             mmap,
+            version,
             files: HashMap::new(),
         }
     }
@@ -56,12 +67,7 @@ pub trait GGPKRead {
 
 impl GGPKRead for GGPK<'_> {
     fn get_file(&self, path: &str) -> GGPKFile {
-        let files_list = read_record(
-            &self.mmap,
-            0,
-            &String::from(""),
-            &mut Some(path.to_string()),
-        );
+        let files_list = read_record(self, 0, &String::from(""), &mut Some(path.to_string()));
 
         // TODO: get rid of panics and return Result<_,_>
         let file_count = files_list.len();
@@ -86,7 +92,7 @@ impl GGPKRead for GGPK<'_> {
     }
 
     fn list_files(&self) -> Vec<String> {
-        let files_list = read_record(&self.mmap, 0, &String::from(""), &mut None);
+        let files_list = read_record(self, 0, &String::from(""), &mut None);
 
         files_list.iter().map(|r| r.absolute_path()).collect()
     }
@@ -94,12 +100,12 @@ impl GGPKRead for GGPK<'_> {
 
 // TODO: refactor read_record and introduce a lazy cache of files
 fn read_record(
-    mmap: &Mmap,
+    ggpk: &GGPK,
     offset: u64,
     base: &String,
     wanted: &Option<String>,
 ) -> LinkedList<FileRecord> {
-    let mut c = Cursor::new(mmap);
+    let mut c = Cursor::new(&ggpk.mmap);
     c.set_position(offset);
 
     let record_size = c.read_u32::<LittleEndian>().unwrap();
@@ -119,7 +125,7 @@ fn read_record(
             let records = (record_size - 12) / 8;
             return (0..records)
                 .map(|_| c.read_u64::<LittleEndian>().unwrap())
-                .map(|offset| read_record(mmap, offset, &base, wanted))
+                .map(|offset| read_record(ggpk, offset, &base, wanted))
                 .fold(LinkedList::new(), |mut acc, mut x| {
                     acc.append(&mut x);
                     acc
@@ -129,7 +135,7 @@ fn read_record(
             c.seek(SeekFrom::Current(4)).unwrap(); // ignore name length
             let entries_length = c.read_u32::<LittleEndian>().unwrap();
             c.seek(SeekFrom::Current(32)).unwrap(); // ignore hash value
-            let name = read_utf16(&mut c);
+            let name = read_string(&mut c, ggpk.version);
             let path = if base.len() == 0 {
                 name.clone()
             } else {
@@ -149,11 +155,11 @@ fn read_record(
                 .into_iter()
                 .into_par_iter()
                 .map(|i| {
-                    let mut c2 = Cursor::new(&mmap);
+                    let mut c2 = Cursor::new(&ggpk.mmap);
                     c2.set_position(c.position() + (i * 12) as u64);
                     c2.seek(SeekFrom::Current(4)).unwrap(); // ignore hash value
                     let offset = c2.read_u64::<LittleEndian>().unwrap();
-                    return read_record(mmap, offset, &path, wtf);
+                    return read_record(ggpk, offset, &path, wtf);
                 })
                 .fold(
                     || LinkedList::new(),
@@ -173,7 +179,7 @@ fn read_record(
         "FILE" => {
             let name_length = c.read_u32::<LittleEndian>().unwrap();
             let signature = read_file_signature(&mut c).unwrap();
-            let filename = read_utf16(&mut c);
+            let filename = read_string(&mut c, ggpk.version);
             if !wanted
                 .as_ref()
                 .map(|s| s.ends_with(&filename))
@@ -222,10 +228,28 @@ fn read_file_signature(c: &mut Cursor<&memmap::Mmap>) -> Result<[u8; 32], Box<dy
     Ok(bytes)
 }
 
+fn read_string(c: &mut Cursor<&memmap::Mmap>, version: u32) -> String {
+    if version == 4 {
+        read_utf32(c)
+    } else {
+        read_utf16(c)
+    }
+}
+
 fn read_utf16(c: &mut Cursor<&memmap::Mmap>) -> String {
     let raw = (0..)
         .map(|_| c.read_u16::<LittleEndian>().unwrap())
         .take_while(|&x| x != 0u16)
         .collect::<Vec<u16>>();
     String::from_utf16(&raw).expect("Failed reading utf16")
+}
+
+fn read_utf32(c: &mut Cursor<&memmap::Mmap>) -> String {
+    let raw = (0..)
+        .map(|_| c.read_u32::<LittleEndian>().unwrap())
+        .take_while(|&x| x != 0u32)
+        .collect::<Vec<u32>>();
+
+    // Should be fine, I do not expect exotic symbols in a path
+    U32String::from_vec(raw).to_string_lossy()
 }
