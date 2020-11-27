@@ -1,16 +1,16 @@
-use std::fs::{create_dir_all, File};
-use std::io::{self, Write};
-use std::path::Path;
-
 #[macro_use]
 extern crate log;
 extern crate simplelog;
 use clap::{App, Arg};
 use simplelog::*;
+use regex::Regex;
+use std::io;
 
 mod ggpk;
-use regex::Regex;
 use crate::ggpk::{GGPK, GGPKRead};
+
+mod file;
+use crate::file::{GGPKFileFn};
 
 fn main() {
     let matches = App::new("GGPK Reader")
@@ -96,22 +96,21 @@ fn main() {
             .filter(|filepath| is_included(filepath.as_str(), &query))
             .take(1)
             .for_each(|filepath| {
-                let bytes = ggpk.get_file(filepath);
-                io::stdout().write_all(bytes.as_slice()).unwrap();
+                let file = ggpk.get_file(filepath);
+                //let size = (file.record.bytes as u32).try_into().unwrap();
+                //let mut dst: Vec<u8> = Vec::with_capacity(size);
+                //file.write_into(&mut dst).unwrap();
+                file.write_into(&mut io::stdout()).unwrap();
             });
     } else if let Some(output) = matches.value_of("output") {
         files
             .iter()
             .filter(|filepath| is_included(filepath.as_str(), &query))
             .for_each(|filepath| {
-                let bytes = ggpk.get_file(filepath);
+                let file = ggpk.get_file(filepath);
                 let path = format!("{}/{}", output, filepath);
                 println!("Writing {}", path);
-                create_path(&path);
-                File::create(path.as_str())
-                    .unwrap()
-                    .write(bytes.as_slice())
-                    .unwrap();
+                file.write_file(path.as_str()).expect("Write failed");
             });
     } else {
         files
@@ -123,13 +122,4 @@ fn main() {
 
 fn is_included(file: &str, query: &Option<Regex>) -> bool {
     query.as_ref().map(|re| re.is_match(file)).unwrap_or(true)
-}
-
-fn create_path(path: &str) {
-    match Path::new(path).parent() {
-        Some(directory) => {
-            let _ = create_dir_all(directory);
-        }
-        None => {}
-    }
 }

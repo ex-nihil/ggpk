@@ -1,3 +1,4 @@
+use super::file::{FileRecord, FileRecordFn, GGPKFile};
 use byteorder::{LittleEndian, ReadBytesExt};
 use memmap::Mmap;
 use memmap::MmapOptions;
@@ -7,25 +8,16 @@ use std::collections::LinkedList;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fs::File;
-use std::io::Write;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 #[derive(Debug)]
 pub struct GGPK<'a> {
-    mmap: Mmap,
+    pub mmap: Mmap,
     files: HashMap<String, &'a FileRecord>,
 }
 
-#[derive(Debug)]
-pub struct FileRecord {
-    pub name: String,
-    pub path: String,
-    pub signature: [u8; 32],
-    pub begin: usize,
-    pub bytes: u32,
-}
-
 impl GGPK<'_> {
+    
     pub fn from_install(install_path: &str) -> GGPK<'_> {
         let content_path = format!("{}/Content.ggpk", install_path);
 
@@ -58,12 +50,12 @@ impl GGPK<'_> {
 }
 
 pub trait GGPKRead {
-    fn get_file(&self, path: &str) -> Vec<u8>;
+    fn get_file(&self, path: &str) -> GGPKFile;
     fn list_files(&self) -> Vec<String>;
 }
 
 impl GGPKRead for GGPK<'_> {
-    fn get_file(&self, path: &str) -> Vec<u8> {
+    fn get_file(&self, path: &str) -> GGPKFile {
         let files_list = read_record(
             &self.mmap,
             0,
@@ -71,39 +63,36 @@ impl GGPKRead for GGPK<'_> {
             &mut Some(path.to_string()),
         );
 
-        files_list
-            .iter()
-            .take(1)
-            .map(|record| {
-                let mut dst = Vec::with_capacity(record.bytes as usize);
-                get_record(record, &self.mmap, &mut dst);
-                return dst;
-            })
-            .flatten()
-            .collect()
+        // TODO: get rid of panics and return Result<_,_>
+        let file_count = files_list.len();
+        if file_count > 1 {
+            let files: Vec<_> = files_list.iter().map(|r| r.absolute_path()).collect();
+            panic!("get_file('{}') found multiple matches. {:?}", path, files);
+        } else if file_count == 0 {
+            panic!("get_file('{}') didn't find any matches.", path);
+        }
+
+        let record = files_list.front().unwrap().clone();
+        GGPKFile {
+            ggpk: self,
+            record: FileRecord {
+                name: record.name.clone(),
+                path: record.path.clone(),
+                signature: record.signature,
+                begin: record.begin,
+                bytes: record.bytes,
+            },
+        }
     }
 
     fn list_files(&self) -> Vec<String> {
         let files_list = read_record(&self.mmap, 0, &String::from(""), &mut None);
 
-        files_list
-            .iter()
-            .map(|r| format!("{}/{}", r.path, r.name))
-            .collect()
+        files_list.iter().map(|r| r.absolute_path()).collect()
     }
 }
 
-fn get_record(record: &FileRecord, mmap: &Mmap, dst: &mut Vec<u8>) {
-    let file_end = record.begin + usize::try_from(record.bytes).unwrap();
-    match mmap.get(record.begin..file_end) {
-        Some(bytes) => {
-            dst.write_all(bytes).expect("Write failed");
-        }
-        _ => warn!("Read failed: {}/{}", record.path, record.name),
-    }
-}
-
-// TODO: refactor this
+// TODO: refactor read_record and introduce a lazy cache of files
 fn read_record(
     mmap: &Mmap,
     offset: u64,
