@@ -1,0 +1,51 @@
+name: Release Build
+
+on:
+  release:
+    types: [created]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    
+
+    steps:
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@v1.2.2
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - uses: actions/checkout@v2
+
+    - name: Build
+      run: cargo build --release --verbose
+
+    - name: Upload Windows binary
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: ./target/release/ggpk.exe
+        asset_name: ggpk.exe
+        asset_content_type: application/octet-stream'
+
+    - name: Upload release binary
+      if: matrix.os != 'windows-latest'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: ./target/release/ggpk
+        asset_name: ggpk_${{ matrix.os }}
+        asset_content_type: application/octet-stream

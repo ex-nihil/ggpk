@@ -14,7 +14,7 @@ use crate::file::{GGPKFileFn};
 
 fn main() {
     let matches = App::new("GGPK Reader")
-        .version("1.0")
+        .version("1.1.1")
         .author("Daniel D. <daniel.k.dimovski@gmail.com>")
         .about("Reads the GGPK fileformat from the game Path of Exile")
         .arg(
