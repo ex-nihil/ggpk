@@ -1,62 +1,30 @@
 use super::file::{FileRecord, FileRecordFn, GGPKFile};
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
 use memmap::Mmap;
-use memmap::MmapOptions;
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::collections::LinkedList;
 use std::convert::TryFrom;
 use std::error::Error;
-use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use widestring::U32String;
 
-#[derive(Debug)]
-pub struct GGPK<'a> {
+use super::util;
+
+pub struct GGPK {
     pub version: u32,
     pub mmap: Mmap,
-    files: HashMap<String, &'a FileRecord>,
 }
 
-impl GGPK<'_> {
-    pub fn from_install(install_path: &str) -> GGPK<'_> {
+impl GGPK {
+    pub fn from_install(install_path: &str) -> GGPK {
         let content_path = format!("{}/Content.ggpk", install_path);
-
-        let file = File::open(content_path).expect("Failed opening GGPK file");
-        let mmap = unsafe {
-            MmapOptions::new()
-                .map(&file)
-                .expect("Mapping GGPK file to memory")
-        };
-
-        let mut c = Cursor::new(&mmap);
-        c.set_position(8);
-        let version = c.read_u32::<LittleEndian>().unwrap();
-
-        GGPK {
-            mmap,
-            version,
-            files: HashMap::new(),
-        }
+        GGPK::from_file(content_path.as_str())
     }
 
-    pub fn from_file(path: &str) -> GGPK<'_> {
-        let file = File::open(path).expect("Failed opening GGPK file");
-        let mmap = unsafe {
-            MmapOptions::new()
-                .map(&file)
-                .expect("Mapping GGPK file to memory")
-        };
-
-        let mut c = Cursor::new(&mmap);
-        c.set_position(8);
-        let version = c.read_u32::<LittleEndian>().unwrap();
-
-        GGPK {
-            mmap,
-            version,
-            files: HashMap::new(),
-        }
+    pub fn from_file(path: &str) -> GGPK {
+        let mmap = util::to_mmap_unsafe(path);
+        let version = LittleEndian::read_u32(&mmap[8..12]);
+        GGPK { mmap, version }
     }
 }
 
@@ -65,20 +33,19 @@ pub trait GGPKRead {
     fn list_files(&self) -> Vec<String>;
 }
 
-impl GGPKRead for GGPK<'_> {
+impl GGPKRead for GGPK {
     fn get_file(&self, path: &str) -> GGPKFile {
-        let files_list = read_record(self, 0, &String::from(""), &mut Some(path.to_string()));
+        let files = read_record(self, 0, "", Some(path));
 
-        // TODO: get rid of panics and return Result<_,_>
-        let file_count = files_list.len();
+        let file_count = files.len();
         if file_count > 1 {
-            let files: Vec<_> = files_list.iter().map(|r| r.absolute_path()).collect();
+            let files: Vec<_> = files.iter().map(|r| r.absolute_path()).collect();
             panic!("get_file('{}') found multiple matches. {:?}", path, files);
         } else if file_count == 0 {
             panic!("get_file('{}') didn't find any matches.", path);
         }
 
-        let record = files_list.front().unwrap().clone();
+        let record = files.front().unwrap();
         GGPKFile {
             ggpk: self,
             record: FileRecord {
@@ -92,9 +59,10 @@ impl GGPKRead for GGPK<'_> {
     }
 
     fn list_files(&self) -> Vec<String> {
-        let files_list = read_record(self, 0, &String::from(""), &mut None);
-
-        files_list.iter().map(|r| r.absolute_path()).collect()
+        read_record(self, 0, "", None)
+            .iter()
+            .map(|r| r.absolute_path())
+            .collect()
     }
 }
 
@@ -102,8 +70,8 @@ impl GGPKRead for GGPK<'_> {
 fn read_record(
     ggpk: &GGPK,
     offset: u64,
-    base: &String,
-    wanted: &Option<String>,
+    base: &str,
+    wanted: Option<&str>,
 ) -> LinkedList<FileRecord> {
     let mut c = Cursor::new(&ggpk.mmap);
     c.set_position(offset);
@@ -111,12 +79,6 @@ fn read_record(
     let record_size = c.read_u32::<LittleEndian>().unwrap();
     let record_type = read_record_tag(&mut c).unwrap();
 
-    trace!(
-        "RECORD {} offset({}) {} bytes",
-        record_type,
-        offset,
-        record_size
-    );
     match record_type.as_str() {
         "GGPK" => {
             let ggpk_version = c.read_u32::<LittleEndian>().unwrap();
@@ -142,12 +104,7 @@ fn read_record(
                 format!("{}/{}", base, name)
             };
 
-            let wtf = wanted;
-            if !wanted
-                .as_ref()
-                .map(|s| s.starts_with(&path))
-                .unwrap_or(true)
-            {
+            if !wanted.map(|s| s.starts_with(&path)).unwrap_or(true) {
                 return LinkedList::new();
             }
 
@@ -159,15 +116,8 @@ fn read_record(
                     c2.set_position(c.position() + (i * 12) as u64);
                     c2.seek(SeekFrom::Current(4)).unwrap(); // ignore hash value
                     let offset = c2.read_u64::<LittleEndian>().unwrap();
-                    return read_record(ggpk, offset, &path, wtf);
+                    return read_record(ggpk, offset, &path, wanted);
                 })
-                .fold(
-                    || LinkedList::new(),
-                    |mut acc, mut x| {
-                        acc.append(&mut x);
-                        acc
-                    },
-                )
                 .reduce(
                     || LinkedList::new(),
                     |mut acc, mut x| {
@@ -180,11 +130,7 @@ fn read_record(
             let name_length = c.read_u32::<LittleEndian>().unwrap();
             let signature = read_file_signature(&mut c).unwrap();
             let filename = read_string(&mut c, ggpk.version);
-            if !wanted
-                .as_ref()
-                .map(|s| s.ends_with(&filename))
-                .unwrap_or(true)
-            {
+            if !wanted.map(|s| s.ends_with(&filename)).unwrap_or(true) {
                 return LinkedList::new();
             }
             let name_size = (filename.len() + 1) * 2;

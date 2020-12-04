@@ -7,14 +7,14 @@ use regex::Regex;
 use std::io;
 
 mod ggpk;
-use crate::ggpk::{GGPK, GGPKRead};
-
 mod file;
+mod util;
+use crate::ggpk::{GGPK, GGPKRead};
 use crate::file::{GGPKFileFn};
 
 fn main() {
     let matches = App::new("GGPK Reader")
-        .version("1.1.1")
+        .version("1.1.0")
         .author("Daniel D. <daniel.k.dimovski@gmail.com>")
         .about("Reads the GGPK fileformat from the game Path of Exile")
         .arg(

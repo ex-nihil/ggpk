@@ -6,9 +6,8 @@ use std::path::Path;
 
 use super::ggpk::GGPK;
 
-#[derive(Debug)]
 pub struct GGPKFile<'a> {
-    pub ggpk: &'a GGPK<'a>,
+    pub ggpk: &'a GGPK,
     pub record: FileRecord,
 }
 
@@ -42,7 +41,6 @@ impl GGPKFileFn for GGPKFile<'_> {
     }
 }
 
-#[derive(Debug)]
 pub struct FileRecord {
     pub name: String,
     pub path: String,
