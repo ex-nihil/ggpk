@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use std::collections::LinkedList;
 use std::convert::TryFrom;
 use std::error::Error;
+use std::io;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use widestring::U32String;
 
@@ -17,18 +18,16 @@ pub struct GGPK {
 }
 
 impl GGPK {
-    pub fn from_install(install_path: &str) -> GGPK {
+    pub fn from_install(install_path: &str) -> Result<GGPK, io::Error> {
         let content_path = format!("{}/Content.ggpk", install_path);
         GGPK::from_file(content_path.as_str())
     }
 
-    pub fn from_file(path: &str) -> GGPK {
-        let mmap = util::to_mmap_unsafe(path);
-        let version = LittleEndian::read_u32(&mmap[8..12]);
-        GGPK {
-            mmap,
-            version: GGPKVersion::from_id(version),
-        }
+    pub fn from_file(path: &str) -> Result<GGPK, io::Error> {
+        let mmap = util::to_mmap_unsafe(path)?;
+        let version_id = LittleEndian::read_u32(&mmap[8..12]);
+        let version = GGPKVersion::from_id(version_id);
+        Ok(GGPK { mmap, version })
     }
 }
 

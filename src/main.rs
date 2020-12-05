@@ -8,8 +8,8 @@ use std::io;
 
 mod file;
 mod ggpk;
-mod version;
 mod util;
+mod version;
 use crate::file::GGPKFileFn;
 use crate::ggpk::{GGPKRead, GGPK};
 
@@ -71,14 +71,15 @@ fn main() {
         .value_of("query")
         .and_then(|re| Regex::new(&re).ok());
 
-    let ggpk = if let Some(file) = matches.value_of("file") {
-        GGPK::from_file(file)
+    let filepath = if matches.is_present("file") {
+        matches.value_of("file").unwrap().to_string()
     } else {
-        GGPK::from_install(matches.value_of("path").unwrap())
+        let path = matches.value_of("path").unwrap();
+        format!("{}/Content.ggpk", path)
     };
 
+    let ggpk = open_ggpk(filepath.as_str());
     let files = ggpk.list_files();
-
     if matches.is_present("binary") {
         files
             .iter()
@@ -95,8 +96,10 @@ fn main() {
             .for_each(|filepath| {
                 let file = ggpk.get_file(filepath);
                 let path = format!("{}/{}", output, filepath);
-                println!("Writing {}", path);
-                file.write_file(path.as_str()).expect("Write failed");
+                match file.write_file(path.as_str()) {
+                    Ok(_) => info!("Wrote file '{}'", path),
+                    Err(e) => error!("Write failed. '{}'. Error: {}", path, e),
+                }
             });
     } else {
         files
@@ -108,4 +111,14 @@ fn main() {
 
 fn is_included(file: &str, query: &Option<Regex>) -> bool {
     query.as_ref().map(|re| re.is_match(file)).unwrap_or(true)
+}
+
+fn open_ggpk(filepath: &str) -> GGPK {
+    match GGPK::from_file(filepath) {
+        Ok(ggpk) => ggpk,
+        Err(e) => {
+            error!("Failed reading '{}' into mmap. {}", filepath, e);
+            std::process::exit(-1);
+        }
+    }
 }

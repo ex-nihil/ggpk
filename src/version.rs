@@ -25,11 +25,11 @@ pub const GGPK_VERSIONS: [GGPKVersion; 4] = [
 
 impl GGPKVersion {
     pub fn from_id(id: u32) -> GGPKVersion {
-        let version = GGPK_VERSIONS.iter().find(|v| v.id == id);
-        match version {
-            Some(&v) => v,
+        info!("GGPK version: {}", id);
+        match GGPK_VERSIONS.iter().find(|v| v.id == id) {
+            Some(&version) => version,
             None => {
-                warn!("GGPK has unknown version. Using the latest known.");
+                warn!("Unknown GGPK version. Using latest known implementation.");
                 GGPK_VERSIONS[0]
             }
         }
