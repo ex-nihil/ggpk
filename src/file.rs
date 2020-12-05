@@ -19,7 +19,8 @@ pub trait GGPKFileFn {
 impl GGPKFileFn for GGPKFile<'_> {
     fn write_file(&self, path: &str) -> Result<usize, Error> {
         let record = &self.record;
-        self.ggpk.mmap
+        self.ggpk
+            .mmap
             .get(record.begin..(record.begin + record.bytes as usize))
             .map(|bytes| {
                 Path::new(path).parent().map(|path| create_dir_all(path));
@@ -29,15 +30,12 @@ impl GGPKFileFn for GGPKFile<'_> {
     }
 
     fn write_into(&self, dst: &mut impl Write) -> Result<usize, Error> {
-
         let record = &self.record;
-        self.ggpk.mmap
+        self.ggpk
+            .mmap
             .get(record.begin..(record.begin + record.bytes as usize))
-            .map(|bytes| {
-                dst.write(bytes)
-            })
+            .map(|bytes| dst.write(bytes))
             .unwrap_or_else(|| Err(Error::new(InvalidData, "Read outside GGPK")))
-
     }
 }
 
@@ -55,7 +53,6 @@ pub trait FileRecordFn {
 }
 
 impl FileRecordFn for FileRecord {
-
     fn absolute_path(&self) -> String {
         format!("{}/{}", self.path, self.name)
     }

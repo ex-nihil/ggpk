@@ -2,15 +2,15 @@
 extern crate log;
 extern crate simplelog;
 use clap::{App, Arg};
-use simplelog::*;
 use regex::Regex;
+use simplelog::*;
 use std::io;
 
-mod ggpk;
 mod file;
+mod ggpk;
 mod util;
-use crate::ggpk::{GGPK, GGPKRead};
-use crate::file::{GGPKFileFn};
+use crate::file::GGPKFileFn;
+use crate::ggpk::{GGPKRead, GGPK};
 
 fn main() {
     let matches = App::new("GGPK Reader")
@@ -52,22 +52,10 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("silent")
-                .short("s")
-                .long("silent")
-                .help("Prevent writing to stdout"),
-        )
-        .arg(
             Arg::with_name("binary")
                 .short("b")
                 .long("binary")
                 .help("Output file contents to stdout"),
-        )
-        .arg(
-            Arg::with_name("v")
-                .short("v")
-                .multiple(true)
-                .help("Sets the level of verbosity"),
         )
         .get_matches();
 
@@ -97,9 +85,6 @@ fn main() {
             .take(1)
             .for_each(|filepath| {
                 let file = ggpk.get_file(filepath);
-                //let size = (file.record.bytes as u32).try_into().unwrap();
-                //let mut dst: Vec<u8> = Vec::with_capacity(size);
-                //file.write_into(&mut dst).unwrap();
                 file.write_into(&mut io::stdout()).unwrap();
             });
     } else if let Some(output) = matches.value_of("output") {
