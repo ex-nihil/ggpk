@@ -1,7 +1,7 @@
 # Path of Exile GGPK reader
 
 A CLI and library for reading GGPK files for the game [Path of Exile](pathofexile.com/) created by [Grinding Gear Games](https://www.grindinggear.com/).
-
+The scope is limited only to extracting files contained inside the GGPK, futher reading of the files contained within will not be added.
 
 ## Building
 
