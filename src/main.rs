@@ -8,6 +8,7 @@ use std::io;
 
 mod file;
 mod ggpk;
+mod version;
 mod util;
 use crate::file::GGPKFileFn;
 use crate::ggpk::{GGPKRead, GGPK};

@@ -9,9 +9,10 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 use widestring::U32String;
 
 use super::util;
+use super::version::{GGPKVersion, GGPKVersionImpl};
 
 pub struct GGPK {
-    pub version: u32,
+    pub version: GGPKVersion,
     pub mmap: Mmap,
 }
 
@@ -24,7 +25,10 @@ impl GGPK {
     pub fn from_file(path: &str) -> GGPK {
         let mmap = util::to_mmap_unsafe(path);
         let version = LittleEndian::read_u32(&mmap[8..12]);
-        GGPK { mmap, version }
+        GGPK {
+            mmap,
+            version: GGPKVersion::from_id(version),
+        }
     }
 }
 
@@ -174,8 +178,8 @@ fn read_file_signature(c: &mut Cursor<&memmap::Mmap>) -> Result<[u8; 32], Box<dy
     Ok(bytes)
 }
 
-fn read_string(c: &mut Cursor<&memmap::Mmap>, version: u32) -> String {
-    if version == 4 {
+fn read_string(c: &mut Cursor<&memmap::Mmap>, version: GGPKVersion) -> String {
+    if version.use_utf32() {
         read_utf32(c)
     } else {
         read_utf16(c)
