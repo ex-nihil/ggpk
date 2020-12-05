@@ -18,6 +18,7 @@ pub struct GGPK {
 }
 
 impl GGPK {
+    #[allow(dead_code)]
     pub fn from_install(install_path: &str) -> Result<GGPK, io::Error> {
         let content_path = format!("{}/Content.ggpk", install_path);
         GGPK::from_file(content_path.as_str())
