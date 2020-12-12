@@ -14,6 +14,7 @@ pub struct GGPKFile<'a> {
 pub trait GGPKFileFn {
     fn write_file(&self, path: &str) -> Result<usize, Error>;
     fn write_into(&self, dst: &mut impl Write) -> Result<usize, Error>;
+    fn bytes(&self) -> &[u8];
 }
 
 impl GGPKFileFn for GGPKFile<'_> {
@@ -36,6 +37,13 @@ impl GGPKFileFn for GGPKFile<'_> {
             .get(record.begin..(record.begin + record.bytes as usize))
             .map(|bytes| dst.write(bytes))
             .unwrap_or_else(|| Err(Error::new(InvalidData, "Read outside GGPK")))
+    }
+    fn bytes(&self) -> &[u8] {
+        let record = &self.record;
+        self.ggpk
+            .mmap
+            .get(record.begin..(record.begin + record.bytes as usize))
+            .unwrap()
     }
 }
 
