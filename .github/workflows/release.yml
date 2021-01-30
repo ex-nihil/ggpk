@@ -15,7 +15,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     
-
     steps:
     - name: Get release
       id: get_release
@@ -26,26 +25,22 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Build
-      run: cargo build --release --verbose
+      run: cargo build --release --verbose --example cli
 
-    - name: Upload Windows binary
+    - name: Package
       if: matrix.os == 'windows-latest'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./target/release/ggpk.exe
-        asset_name: ggpk.exe
-        asset_content_type: application/octet-stream'
+      run: powershell Compress-Archive target/release/examples/cli.exe ${{ matrix.os }}.zip
 
-    - name: Upload release binary
+    - name: Package
       if: matrix.os != 'windows-latest'
+      run: zip --junk-paths ${{ matrix.os }} target/release/examples/cli
+
+    - name: Upload
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ github.token }}
       with:
         upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./target/release/ggpk
-        asset_name: ggpk_${{ matrix.os }}
-        asset_content_type: application/octet-stream
+        asset_path: ./${{ matrix.os }}.zip
+        asset_name: ${{ matrix.os }}.zip
+        asset_content_type: application/zip

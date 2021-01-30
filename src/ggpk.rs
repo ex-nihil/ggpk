@@ -1,4 +1,4 @@
-use super::file::{FileRecord, FileRecordFn, GGPKFile};
+use super::file::{FileRecord, GGPKFile};
 use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
 use memmap::Mmap;
 use rayon::prelude::*;
@@ -10,7 +10,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 use widestring::U32String;
 
 use super::util;
-use super::version::{GGPKVersion, GGPKVersionImpl};
+use super::version::GGPKVersion;
 
 pub struct GGPK {
     pub version: GGPKVersion,
@@ -18,8 +18,7 @@ pub struct GGPK {
 }
 
 impl GGPK {
-    #[allow(dead_code)]
-    pub fn from_install(install_path: &str) -> Result<GGPK, io::Error> {
+    pub fn from_path(install_path: &str) -> Result<GGPK, io::Error> {
         let content_path = format!("{}/Content.ggpk", install_path);
         GGPK::from_file(content_path.as_str())
     }
@@ -30,15 +29,8 @@ impl GGPK {
         let version = GGPKVersion::from_id(version_id);
         Ok(GGPK { mmap, version })
     }
-}
 
-pub trait GGPKRead {
-    fn get_file(&self, path: &str) -> GGPKFile;
-    fn list_files(&self) -> Vec<String>;
-}
-
-impl GGPKRead for GGPK {
-    fn get_file(&self, path: &str) -> GGPKFile {
+    pub fn get_file(&self, path: &str) -> GGPKFile {
         let files = read_record(self, 0, "", Some(path));
 
         let file_count = files.len();
@@ -62,13 +54,14 @@ impl GGPKRead for GGPK {
         }
     }
 
-    fn list_files(&self) -> Vec<String> {
+    pub fn list_files(&self) -> Vec<String> {
         read_record(self, 0, "", None)
             .iter()
             .map(|r| r.absolute_path())
             .collect()
     }
 }
+
 
 // TODO: refactor read_record and introduce a lazy cache of files
 fn read_record(

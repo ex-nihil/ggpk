@@ -11,14 +11,8 @@ pub struct GGPKFile<'a> {
     pub record: FileRecord,
 }
 
-pub trait GGPKFileFn {
-    fn write_file(&self, path: &str) -> Result<usize, Error>;
-    fn write_into(&self, dst: &mut impl Write) -> Result<usize, Error>;
-    fn bytes(&self) -> &[u8];
-}
-
-impl GGPKFileFn for GGPKFile<'_> {
-    fn write_file(&self, path: &str) -> Result<usize, Error> {
+impl GGPKFile<'_> {
+    pub fn write_file(&self, path: &str) -> Result<usize, Error> {
         let record = &self.record;
         self.ggpk
             .mmap
@@ -30,7 +24,7 @@ impl GGPKFileFn for GGPKFile<'_> {
             .unwrap_or_else(|| Err(Error::new(InvalidData, "Read outside GGPK")))
     }
 
-    fn write_into(&self, dst: &mut impl Write) -> Result<usize, Error> {
+    pub fn write_into(&self, dst: &mut impl Write) -> Result<usize, Error> {
         let record = &self.record;
         self.ggpk
             .mmap
@@ -38,7 +32,8 @@ impl GGPKFileFn for GGPKFile<'_> {
             .map(|bytes| dst.write(bytes))
             .unwrap_or_else(|| Err(Error::new(InvalidData, "Read outside GGPK")))
     }
-    fn bytes(&self) -> &[u8] {
+
+    pub fn bytes(&self) -> &[u8] {
         let record = &self.record;
         self.ggpk
             .mmap
@@ -55,17 +50,12 @@ pub struct FileRecord {
     pub bytes: u32,
 }
 
-pub trait FileRecordFn {
-    fn absolute_path(&self) -> String;
-    fn clone(&self) -> FileRecord;
-}
-
-impl FileRecordFn for FileRecord {
-    fn absolute_path(&self) -> String {
+impl FileRecord {
+    pub fn absolute_path(&self) -> String {
         format!("{}/{}", self.path, self.name)
     }
 
-    fn clone(&self) -> FileRecord {
+    pub fn clone(&self) -> FileRecord {
         FileRecord {
             name: self.name.clone(),
             path: self.path.clone(),

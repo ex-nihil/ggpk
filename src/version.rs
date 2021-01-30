@@ -4,7 +4,7 @@ pub struct GGPKVersion {
     utf32_paths: bool,
 }
 
-pub const GGPK_VERSIONS: [GGPKVersion; 4] = [
+pub const GGPK_VERSIONS: [GGPKVersion; 3] = [
     GGPKVersion {
         id: 4,
         utf32_paths: true,
@@ -15,10 +15,6 @@ pub const GGPK_VERSIONS: [GGPKVersion; 4] = [
     },
     GGPKVersion {
         id: 2,
-        utf32_paths: false,
-    },
-    GGPKVersion {
-        id: 1,
         utf32_paths: false,
     },
 ];
@@ -34,14 +30,8 @@ impl GGPKVersion {
             }
         }
     }
-}
 
-pub trait GGPKVersionImpl {
-    fn use_utf32(&self) -> bool;
-}
-
-impl GGPKVersionImpl for GGPKVersion {
-    fn use_utf32(&self) -> bool {
+    pub fn use_utf32(&self) -> bool {
         self.utf32_paths
     }
 }

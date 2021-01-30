@@ -6,12 +6,7 @@ use regex::Regex;
 use simplelog::*;
 use std::io;
 
-mod file;
-mod ggpk;
-mod util;
-mod version;
-use crate::file::GGPKFileFn;
-use crate::ggpk::{GGPKRead, GGPK};
+use ggpk::GGPK;
 
 fn main() {
     let matches = App::new("GGPK Reader")
