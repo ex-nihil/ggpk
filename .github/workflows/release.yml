@@ -25,15 +25,15 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Build
-      run: cargo build --release --verbose --example cli
+      run: cargo build --release --verbose --example ggpk
 
     - name: Package
       if: matrix.os == 'windows-latest'
-      run: powershell Compress-Archive target/release/examples/cli.exe ${{ matrix.os }}.zip
+      run: powershell Compress-Archive target/release/examples/ggpk.exe ${{ matrix.os }}.zip
 
     - name: Package
       if: matrix.os != 'windows-latest'
-      run: zip --junk-paths ${{ matrix.os }} target/release/examples/cli
+      run: zip --junk-paths ${{ matrix.os }} target/release/examples/ggpk
 
     - name: Upload
       uses: actions/upload-release-asset@v1
