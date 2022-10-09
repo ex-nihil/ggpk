@@ -2,4 +2,6 @@
 .DS_Store
 *.log
 /.vscode
+/.idea
 Content.ggpk
+ggpk_dump/
