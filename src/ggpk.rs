@@ -127,9 +127,13 @@ fn read_record(
             let name_length = c.read_u32::<LittleEndian>().unwrap();
             let signature = read_file_signature(&mut c).unwrap();
             let filename = read_string(&mut c, ggpk.version);
-            if !wanted.map(|s| s.ends_with(&filename)).unwrap_or(true) {
+
+            let absolute_path = base.to_string() + "/" + &filename;
+
+            if !wanted.map(|s| s == &absolute_path).unwrap_or(true) {
                 return LinkedList::new();
             }
+
             let name_size = (filename.len() + 1) * 2;
             if usize::try_from(name_length).unwrap() != filename.len() + 1 {
                 warn!(
