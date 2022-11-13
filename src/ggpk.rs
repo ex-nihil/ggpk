@@ -7,6 +7,7 @@ use std::convert::TryFrom;
 use std::error::Error;
 use std::io;
 use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::path::Path;
 use widestring::U32String;
 
 use super::util;
@@ -18,12 +19,12 @@ pub struct GGPK {
 }
 
 impl GGPK {
-    pub fn from_path(install_path: &str) -> Result<GGPK, io::Error> {
-        let content_path = format!("{}/Content.ggpk", install_path);
-        GGPK::from_file(content_path.as_str())
+    pub fn from_path(install_path: &Path) -> Result<GGPK, io::Error> {
+        let content_path = install_path.join("Content.ggpk");
+        GGPK::from_file(content_path.as_path())
     }
 
-    pub fn from_file(path: &str) -> Result<GGPK, io::Error> {
+    pub fn from_file(path: &Path) -> Result<GGPK, io::Error> {
         let mmap = util::to_mmap_unsafe(path)?;
         let version_id = LittleEndian::read_u32(&mmap[8..12]);
         let version = GGPKVersion::from_id(version_id);

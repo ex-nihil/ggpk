@@ -5,12 +5,13 @@ use clap::{App, Arg};
 use regex::Regex;
 use simplelog::*;
 use std::io;
+use std::path::Path;
 
 use ggpk::GGPK;
 
 fn main() {
     let matches = App::new("GGPK Reader")
-        .version("1.2.1")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Daniel D. <daniel@timeloop.se>")
         .about("Reads the GGPK fileformat from the game Path of Exile")
         .arg(
@@ -74,7 +75,7 @@ fn main() {
         format!("{}/Content.ggpk", path)
     };
 
-    let ggpk = open_ggpk(filepath.as_str());
+    let ggpk = open_ggpk(Path::new(&filepath));
     let files = ggpk.list_files();
     if matches.is_present("binary") {
         files
@@ -109,11 +110,11 @@ fn is_included(file: &str, query: &Option<Regex>) -> bool {
     query.as_ref().map(|re| re.is_match(file)).unwrap_or(true)
 }
 
-fn open_ggpk(filepath: &str) -> GGPK {
+fn open_ggpk(filepath: &Path) -> GGPK {
     match GGPK::from_file(filepath) {
         Ok(ggpk) => ggpk,
         Err(e) => {
-            error!("Failed reading '{}' into mmap. {}", filepath, e);
+            error!("Failed reading '{:?}' into mmap. {}", filepath, e);
             std::process::exit(-1);
         }
     }

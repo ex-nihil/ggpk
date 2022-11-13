@@ -1,8 +1,8 @@
 [package]
 name = "ggpk"
-version = "1.2.1"
-authors = ["Daniel Dimovski <daniel@timecode.se>"]
-edition = "2018"
+version = "1.2.2"
+authors = ["Daniel Dimovski <daniel@timeloop.se>"]
+edition = "2021"
 description = "Library for GGPK container format used by the game Path of Exile"
 repository = "https://github.com/ex-nihil/ggpk"
 license = "LGPL-3.0-only"
